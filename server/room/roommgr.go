@@ -62,6 +62,7 @@ func (self *RoomMgr) removeUser(roomId uint32, userName string) {
 		room := iRoom.(*Room)
 		room.removeUserByName(userName)
 		self.NotifyRoom(room, fmt.Sprintf("User %s has leaved No.%d Room", userName, roomId), userName)
+		logkit.Infof("User %s Leave The Room %d", userName, roomId)
 	}
 }
 
@@ -250,6 +251,7 @@ func (self *RoomMgr) handleJoinRoom(data []byte, connId uint32) {
 		self.chatHall.UserMapByName.Store(user.Name, user)
 		room.joinUser(user)
 		self.NotifyRoom(room, fmt.Sprintf("Welcome user %s Join No.%d Room", user.Name, roomId), user.Name)
+		self.roomMap.Store(roomId, room)
 
 		ret := &protocol.JoinRoomRes{}
 		ret.ChatList = make([]*protocol.ChatRes, 0, MAX_RECENT_CHAT_MSG)
@@ -257,6 +259,8 @@ func (self *RoomMgr) handleJoinRoom(data []byte, connId uint32) {
 			ret.ChatList = append(ret.ChatList, chatRes)
 		}
 		self.sendMsg(user.Conn, ret)
+
+		logkit.Infof("User %s Join The Room %d", user.Name, roomId)
 	}
 }
 
@@ -276,7 +280,7 @@ func (self *RoomMgr) checkGmCommand(user *User, content string) bool {
 	if strings.HasPrefix(content, "/popular") {
 		ret := &protocol.GMCommandRes{}
 		cmdList := strings.Split(content, " ")
-		if len(cmdList) != 2 {
+		if len(cmdList) < 2 {
 			ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
 		} else {
 			sec, err := strconv.Atoi(cmdList[1])
@@ -300,8 +304,8 @@ func (self *RoomMgr) checkGmCommand(user *User, content string) bool {
 	if strings.HasPrefix(content, "/stats") {
 		ret := &protocol.GMCommandRes{}
 		cmdList := strings.Split(content, " ")
-		if len(cmdList) != 2 {
-			ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
+		if len(cmdList) < 2 {
+			ret.Result = fmt.Sprintf("Stats GM Command Parament Invalid")
 		} else {
 			targetName := cmdList[1]
 			target := self.chatHall.getUserByName(targetName)
@@ -354,6 +358,7 @@ func (self *RoomMgr) handleChat(data []byte, connId uint32) {
 			return true
 		})
 
+		logkit.Infof("User Chat,Name:%s,Content:%s", user.Name, notify.Content)
 		room.pushMsg(notify)
 		self.wordStatChan <- msg.Content
 	}
@@ -374,6 +379,13 @@ func (self *RoomMgr) handlePrivateChat(data []byte, connId uint32) {
 		if iRoom == nil {
 			return
 		}
+
+		if user.Name == msg.ToName {
+			return
+		}
+
+		logkit.Infof("User Chat Private,Name:%s,ToName:%s,Content:%s", user.Name, msg.ToName, msg.Content)
+
 		room := iRoom.(*Room)
 		target := room.getUserByName(msg.ToName)
 		if target == nil {
