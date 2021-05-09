@@ -1,3 +1,64 @@
 syntax = "proto3";
+package chatroom;
 option go_package = "protocol";
 
+message Message 
+{
+    string type = 1;
+    bytes data = 2;
+}
+ 
+message LoginReq
+{
+    string username = 1;
+    string password = 2;
+}
+
+message LoginRes
+{
+    int32 result = 1;
+    string error = 2;
+}
+
+message JoinRoomReq
+{
+    uint32 roomId = 1;
+}
+
+message JoinRoomRes
+{
+    repeated ChatRes chat_list = 1;
+}
+
+message ChatReq
+{
+    string content = 1;
+}
+
+message PrivateChatReq
+{
+    string toName = 1;
+    string content = 2;
+}
+
+message PrivateChatRes
+{
+    int32 result = 1;
+    string error = 2;
+    string toName = 3;
+    string content = 4;
+}
+
+message ChatRes
+{
+    string fromName = 1;
+    string content = 2;
+    bool  isPrivate = 3;
+    bool  isSystem = 4;
+}
+
+
+message GMCommandRes
+{
+    string result = 1;
+}
