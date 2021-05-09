@@ -1,0 +1,35 @@
+
+¿
+
+chat.protochatroom"1
+Message
+type (	Rtype
+data (Rdata"B
+LoginReq
+username (	Rusername
+password (	Rpassword"8
+LoginRes
+result (Rresult
+error (	Rerror"%
+JoinRoomReq
+roomId (RroomId"=
+JoinRoomRes.
+	chat_list (2.chatroom.ChatResRchatList"#
+ChatReq
+content (	Rcontent"B
+PrivateChatReq
+toName (	RtoName
+content (	Rcontent"p
+PrivateChatRes
+result (Rresult
+error (	Rerror
+toName (	RtoName
+content (	Rcontent"y
+ChatRes
+fromName (	RfromName
+content (	Rcontent
+	isPrivate (R	isPrivate
+isSystem (RisSystem"&
+GMCommandRes
+result (	RresultB
+Zprotocolbproto3

@@ -46,6 +46,7 @@ func (self *Hall) login(userName string, pwd string, connId uint32) {
 		user.Conn = conn.(gnet.Conn)
 		self.UserMapByName.Store(userName, user)
 		self.UserNameByConnId.Store(connId, userName)
+		logkit.Infof("User Login Success,User:%v", user)
 	}
 }
 
