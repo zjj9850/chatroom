@@ -44,28 +44,28 @@ func (self *RoomMgr) registerHandler(msg proto.Message, f MsgHandlerFunc) {
 }
 
 func (self *RoomMgr) Init() {
-	self.registerHandler(&protocol.LoginReq{}, self.HandleLogin)
-	self.registerHandler(&protocol.JoinRoomReq{}, self.HandleJoinRoom)
-	self.registerHandler(&protocol.ChatReq{}, self.HandleChat)
-	self.registerHandler(&protocol.PrivateChatReq{}, self.HandlePrivateChat)
+	self.registerHandler(&protocol.LoginReq{}, self.handleLogin)
+	self.registerHandler(&protocol.JoinRoomReq{}, self.handleJoinRoom)
+	self.registerHandler(&protocol.ChatReq{}, self.handleChat)
+	self.registerHandler(&protocol.PrivateChatReq{}, self.handlePrivateChat)
 }
 
 func (self *RoomMgr) Run() {
-	go self.chatHall.Run(self.server, self.UserLeaveChan)
-	go self.NetFrameCheck()
-	go self.UserLeaveCheck()
-	go self.WordStat()
+	go self.chatHall.run(self.server, self.UserLeaveChan)
+	go self.netFrameCheck()
+	go self.userLeaveCheck()
+	go self.wordStat()
 }
 
-func (self *RoomMgr) RemoveUser(roomId uint32, userName string) {
+func (self *RoomMgr) removeUser(roomId uint32, userName string) {
 	if iRoom, _ := self.roomMap.Load(roomId); iRoom != nil {
 		room := iRoom.(*Room)
-		room.RemoveUserByName(userName)
+		room.removeUserByName(userName)
 		self.NotifyRoom(room, fmt.Sprintf("User %s has leaved No.%d Room", userName, roomId), userName)
 	}
 }
 
-func (self *RoomMgr) WordStat() {
+func (self *RoomMgr) wordStat() {
 	for {
 		select {
 		case content := <-self.wordStatChan:
@@ -98,7 +98,7 @@ func (self *RoomMgr) WordStat() {
 	}
 }
 
-func (self *RoomMgr) GetTopWord(sec int) (string, int) {
+func (self *RoomMgr) getTopWord(sec int) (string, int) {
 	if sec > 60 || sec < 1 {
 		return "", 0
 	}
@@ -131,16 +131,16 @@ func (self *RoomMgr) GetTopWord(sec int) (string, int) {
 	return maxStr, maxCount
 }
 
-func (self *RoomMgr) UserLeaveCheck() {
+func (self *RoomMgr) userLeaveCheck() {
 	for {
 		select {
 		case user := <-self.UserLeaveChan:
-			self.RemoveUser(user.RoomId, user.Name)
+			self.removeUser(user.RoomId, user.Name)
 		}
 	}
 }
 
-func (self *RoomMgr) NetFrameCheck() {
+func (self *RoomMgr) netFrameCheck() {
 	for frameInfo := range self.server.FrameChannel {
 		connId := frameInfo.ConnId
 
@@ -160,7 +160,7 @@ func (self *RoomMgr) NetFrameCheck() {
 	}
 }
 
-func (self *RoomMgr) SendMsg(conn gnet.Conn, msg proto.Message) {
+func (self *RoomMgr) sendMsg(conn gnet.Conn, msg proto.Message) {
 	if conn == nil {
 		return
 	}
@@ -176,7 +176,7 @@ func (self *RoomMgr) SendMsg(conn gnet.Conn, msg proto.Message) {
 	}
 }
 
-func (self *RoomMgr) HandleLogin(data []byte, connId uint32) {
+func (self *RoomMgr) handleLogin(data []byte, connId uint32) {
 	iConn, _ := self.chatHall.ConnMap.Load(connId)
 	if iConn == nil {
 		return
@@ -193,16 +193,16 @@ func (self *RoomMgr) HandleLogin(data []byte, connId uint32) {
 		if _, nameOk := self.chatHall.UserMapByName.Load(msg.Username); nameOk {
 			ret.Result = -1
 			ret.Error = "Your name conflicts with another user"
-			self.SendMsg(conn, ret)
+			self.sendMsg(conn, ret)
 		} else {
 			if self.wordFilter.ContainsAny(msg.Username) {
 				ret.Result = -1
 				ret.Error = "Your name has some dirty words"
-				self.SendMsg(conn, ret)
+				self.sendMsg(conn, ret)
 			} else {
-				self.chatHall.Login(msg.Username, msg.Password, connId)
+				self.chatHall.login(msg.Username, msg.Password, connId)
 				ret.Result = 0
-				self.SendMsg(conn, ret)
+				self.sendMsg(conn, ret)
 			}
 		}
 	}
@@ -216,14 +216,14 @@ func (self *RoomMgr) NotifyRoom(room *Room, content string, excludeName string) 
 	room.UserMapByName.Range(func(key, value interface{}) bool {
 		u := value.(*User)
 		if u.Conn != nil && u.Name != excludeName {
-			self.SendMsg(u.Conn, notify)
+			self.sendMsg(u.Conn, notify)
 		}
 		return true
 	})
 }
 
-func (self *RoomMgr) HandleJoinRoom(data []byte, connId uint32) {
-	user := self.chatHall.GetUserByConnId(connId)
+func (self *RoomMgr) handleJoinRoom(data []byte, connId uint32) {
+	user := self.chatHall.getUserByConnId(connId)
 	if user == nil {
 		return
 	}
@@ -243,12 +243,12 @@ func (self *RoomMgr) HandleJoinRoom(data []byte, connId uint32) {
 		}
 
 		if user.RoomId != 0 {
-			self.RemoveUser(user.RoomId, user.Name)
+			self.removeUser(user.RoomId, user.Name)
 		}
 
 		user.RoomId = roomId
 		self.chatHall.UserMapByName.Store(user.Name, user)
-		room.JoinUser(user)
+		room.joinUser(user)
 		self.NotifyRoom(room, fmt.Sprintf("Welcome user %s Join No.%d Room", user.Name, roomId), user.Name)
 
 		ret := &protocol.JoinRoomRes{}
@@ -256,7 +256,7 @@ func (self *RoomMgr) HandleJoinRoom(data []byte, connId uint32) {
 		for _, chatRes := range room.RecentMsg {
 			ret.ChatList = append(ret.ChatList, chatRes)
 		}
-		self.SendMsg(user.Conn, ret)
+		self.sendMsg(user.Conn, ret)
 	}
 }
 
@@ -268,7 +268,7 @@ func resolveTime(seconds int64) (int, int, int, int) {
 	return int(day), int(hour), int(min), int(sec)
 }
 
-func (self *RoomMgr) CheckGmCommand(user *User, content string) bool {
+func (self *RoomMgr) checkGmCommand(user *User, content string) bool {
 	if !user.IsGM {
 		return false
 	}
@@ -283,7 +283,7 @@ func (self *RoomMgr) CheckGmCommand(user *User, content string) bool {
 			if err != nil {
 				ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
 			} else {
-				maxStr, maxCount := self.GetTopWord(sec)
+				maxStr, maxCount := self.getTopWord(sec)
 				if maxStr == "" || maxCount == 0 {
 					ret.Result = fmt.Sprintf("%d Second Has Not Any Max Frequency Word", sec)
 				} else {
@@ -292,7 +292,7 @@ func (self *RoomMgr) CheckGmCommand(user *User, content string) bool {
 			}
 		}
 
-		self.SendMsg(user.Conn, ret)
+		self.sendMsg(user.Conn, ret)
 
 		return true
 	}
@@ -304,7 +304,7 @@ func (self *RoomMgr) CheckGmCommand(user *User, content string) bool {
 			ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
 		} else {
 			targetName := cmdList[1]
-			target := self.chatHall.GetUserByName(targetName)
+			target := self.chatHall.getUserByName(targetName)
 			if target == nil {
 				ret.Result = fmt.Sprintf("User %s is not online", targetName)
 			} else {
@@ -314,15 +314,15 @@ func (self *RoomMgr) CheckGmCommand(user *User, content string) bool {
 			}
 		}
 
-		self.SendMsg(user.Conn, ret)
+		self.sendMsg(user.Conn, ret)
 		return true
 	}
 
 	return false
 }
 
-func (self *RoomMgr) HandleChat(data []byte, connId uint32) {
-	user := self.chatHall.GetUserByConnId(connId)
+func (self *RoomMgr) handleChat(data []byte, connId uint32) {
+	user := self.chatHall.getUserByConnId(connId)
 	if user == nil {
 		return
 	}
@@ -332,7 +332,7 @@ func (self *RoomMgr) HandleChat(data []byte, connId uint32) {
 	if err != nil {
 		logkit.Error("Chat Req Unmarshal failed", err)
 	} else {
-		if self.CheckGmCommand(user, msg.Content) {
+		if self.checkGmCommand(user, msg.Content) {
 			return
 		}
 
@@ -349,18 +349,18 @@ func (self *RoomMgr) HandleChat(data []byte, connId uint32) {
 		room.UserMapByName.Range(func(key, value interface{}) bool {
 			u := value.(*User)
 			if u.Conn != nil {
-				self.SendMsg(u.Conn, notify)
+				self.sendMsg(u.Conn, notify)
 			}
 			return true
 		})
 
-		room.PushMsg(notify)
+		room.pushMsg(notify)
 		self.wordStatChan <- msg.Content
 	}
 }
 
-func (self *RoomMgr) HandlePrivateChat(data []byte, connId uint32) {
-	user := self.chatHall.GetUserByConnId(connId)
+func (self *RoomMgr) handlePrivateChat(data []byte, connId uint32) {
+	user := self.chatHall.getUserByConnId(connId)
 	if user == nil {
 		return
 	}
@@ -375,12 +375,12 @@ func (self *RoomMgr) HandlePrivateChat(data []byte, connId uint32) {
 			return
 		}
 		room := iRoom.(*Room)
-		target := room.GetUserByName(msg.ToName)
+		target := room.getUserByName(msg.ToName)
 		if target == nil {
 			ret := &protocol.PrivateChatRes{}
 			ret.Result = -1
 			ret.Error = fmt.Sprintf("Target %s not in you chat room", msg.ToName)
-			self.SendMsg(user.Conn, ret)
+			self.sendMsg(user.Conn, ret)
 			return
 		}
 
@@ -391,7 +391,7 @@ func (self *RoomMgr) HandlePrivateChat(data []byte, connId uint32) {
 			chatRes.FromName = user.Name
 			chatRes.Content = realText
 			chatRes.IsPrivate = true
-			self.SendMsg(target.Conn, chatRes)
+			self.sendMsg(target.Conn, chatRes)
 		}
 
 		if user.Conn != nil {
@@ -399,7 +399,7 @@ func (self *RoomMgr) HandlePrivateChat(data []byte, connId uint32) {
 			chatRes.Result = 0
 			chatRes.ToName = msg.ToName
 			chatRes.Content = realText
-			self.SendMsg(user.Conn, chatRes)
+			self.sendMsg(user.Conn, chatRes)
 		}
 	}
 }

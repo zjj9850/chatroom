@@ -18,7 +18,7 @@ func newHall() *Hall {
 	return &Hall{}
 }
 
-func (self *Hall) GetUserByName(name string) *User {
+func (self *Hall) getUserByName(name string) *User {
 	if iUser, _ := self.UserMapByName.Load(name); iUser != nil {
 		user := iUser.(*User)
 		return user
@@ -26,7 +26,7 @@ func (self *Hall) GetUserByName(name string) *User {
 	return nil
 }
 
-func (self *Hall) GetUserByConnId(connId uint32) *User {
+func (self *Hall) getUserByConnId(connId uint32) *User {
 	if n, _ := self.UserNameByConnId.Load(connId); n != nil {
 		userName := n.(string)
 		if iUser, _ := self.UserMapByName.Load(userName); iUser != nil {
@@ -37,7 +37,7 @@ func (self *Hall) GetUserByConnId(connId uint32) *User {
 	return nil
 }
 
-func (self *Hall) Login(userName string, pwd string, connId uint32) {
+func (self *Hall) login(userName string, pwd string, connId uint32) {
 	conn, _ := self.ConnMap.Load(connId)
 	if conn != nil {
 		user := newUser(userName, pwd)
@@ -49,7 +49,7 @@ func (self *Hall) Login(userName string, pwd string, connId uint32) {
 	}
 }
 
-func (self *Hall) Run(server *netlisten.NetListener, leaveChan chan<- *User) {
+func (self *Hall) run(server *netlisten.NetListener, leaveChan chan<- *User) {
 	for {
 		select {
 		case conn := <-server.OpenChannel:

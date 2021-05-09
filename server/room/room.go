@@ -20,14 +20,14 @@ func newRoom(roomId uint32) *Room {
 	}
 }
 
-func (self *Room) PushMsg(chatRes *protocol.ChatRes) {
+func (self *Room) pushMsg(chatRes *protocol.ChatRes) {
 	if len(self.RecentMsg) >= MAX_RECENT_CHAT_MSG {
 		self.RecentMsg = self.RecentMsg[1:]
 	}
 	self.RecentMsg = append(self.RecentMsg, chatRes)
 }
 
-func (self *Room) GetUserByName(name string) *User {
+func (self *Room) getUserByName(name string) *User {
 	if iUser, _ := self.UserMapByName.Load(name); iUser != nil {
 		user := iUser.(*User)
 		return user
@@ -35,10 +35,10 @@ func (self *Room) GetUserByName(name string) *User {
 	return nil
 }
 
-func (self *Room) JoinUser(user *User) {
+func (self *Room) joinUser(user *User) {
 	self.UserMapByName.Store(user.Name, user)
 }
 
-func (self *Room) RemoveUserByName(name string) {
+func (self *Room) removeUserByName(name string) {
 	self.UserMapByName.Delete(name)
 }
