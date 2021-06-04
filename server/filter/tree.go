@@ -92,10 +92,6 @@ func (self *FilterTree) Replace(text string) string {
 		return 0
 	})
 
-	for index, c_rune := range text {
-		check_list[index] = string(c_rune)
-	}
-
 	dirtyPos := make(map[int]struct{})
 	skipPos := make(map[int]struct{})
 
