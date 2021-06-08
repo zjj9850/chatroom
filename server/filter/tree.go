@@ -1,6 +1,9 @@
 package filter
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var UTF8_TRANS []uint8 = []uint8{
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -45,17 +48,22 @@ func NewFilterTree() *FilterTree {
 	return tree
 }
 
-func output_node(node *FilterNode) {
-	fmt.Printf("%s ", node.CharActer)
+func output_node(node *FilterNode, depth int) {
+	tab := ""
+	if depth > 0 {
+		tab = strings.Repeat("-", depth-1)
+		tab = "|" + tab
+	}
+
+	fmt.Printf("%s%s\n", tab, node.CharActer)
 	for _, child := range node.CharMap {
-		output_node(child)
+		output_node(child, depth+1)
 	}
 }
 
 func (self *FilterTree) OutputNodes() {
-	fmt.Println("Root:")
 	for _, child := range self.EmptyRoot.CharMap {
-		output_node(child)
+		output_node(child, 0)
 		fmt.Println("")
 	}
 }
