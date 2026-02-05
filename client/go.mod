@@ -1,8 +1,5 @@
 module chatclient
 
-go 1.14
+go 1.25.6
 
-require (
-	github.com/golang/protobuf v1.5.2
-	google.golang.org/protobuf v1.26.0
-)
+require google.golang.org/protobuf v1.36.11

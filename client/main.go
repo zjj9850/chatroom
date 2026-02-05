@@ -1,16 +1,21 @@
 package main
 
-import "flag"
-import "net"
-import "fmt"
-import "os"
-import "strings"
-import "chatclient/protocol"
-import "bufio"
-import "google.golang.org/protobuf/proto"
-import "encoding/binary"
-import "time"
-import "strconv"
+import (
+	"bufio"
+	"chatclient/protocol"
+	"context"
+	"encoding/binary"
+	"flag"
+	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"time"
+
+	"google.golang.org/protobuf/proto"
+)
 
 var msg_chan chan proto.Message
 
@@ -32,12 +37,22 @@ func main() {
 	conn := newConnect(*address, *port)
 	defer conn.Close()
 
-	go handleinput()
-	// go testConn(conn)
-	go connRead(conn)
-	go connWrite(conn)
+	ctx, cancel := context.WithCancel(context.Background())
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		<-signalChan
+		cancel()
+	}()
+	done := make(chan struct{})
 
-	select {}
+	go handleinput(ctx, cancel)
+	go connRead(ctx, conn, done)
+	go connWrite(ctx, conn, done)
+
+	// 等待所有协程退出
+	<-done
+	<-done
 }
 
 func testConn(conn net.Conn) {
@@ -111,37 +126,60 @@ func handleGmRes(data []byte) {
 	fmt.Printf("GMCommand Result:%s\n", res.Result)
 }
 
-func connRead(conn net.Conn) {
+func connRead(ctx context.Context, conn net.Conn, done chan<- struct{}) {
+	defer func() {
+		fmt.Println("read routine safe exit...")
+	}()
+
+	defer func() { done <- struct{}{} }()
 	for {
-		reply := make([]byte, 2048)
-		_, err := conn.Read(reply)
-
-		if err != nil {
-			fmt.Println("Read Failed", err.Error())
-			os.Exit(1)
-		}
-
-		l_buf := reply[0:2]
-		l := binary.LittleEndian.Uint16(l_buf)
-		if l != 0 {
-			msg_bytes := reply[2 : 2+l]
-			msg := &protocol.Message{}
-			err := proto.Unmarshal(msg_bytes, msg)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			reply := make([]byte, 2048)
+			conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			n, err := conn.Read(reply)
 			if err != nil {
-				fmt.Println("Unmarshal failed", string(msg_bytes))
-			} else {
-				if handler, e := mapHandler[msg.Type]; e {
-					handler(msg.Data)
+				if ne, ok := err.(net.Error); ok && ne.Timeout() {
+					continue
+				}
+				fmt.Println("Read Failed", err.Error())
+				return
+			}
+			if n < 2 {
+				continue
+			}
+			l_buf := reply[0:2]
+			l := binary.LittleEndian.Uint16(l_buf)
+			if l != 0 && int(2+l) <= n {
+				msg_bytes := reply[2 : 2+l]
+				msg := &protocol.Message{}
+				err := proto.Unmarshal(msg_bytes, msg)
+				if err != nil {
+					fmt.Println("Unmarshal failed", string(msg_bytes))
+				} else {
+					if handler, e := mapHandler[msg.Type]; e {
+						handler(msg.Data)
+					}
 				}
 			}
 		}
 	}
 }
 
-func connWrite(conn net.Conn) {
+func connWrite(ctx context.Context, conn net.Conn, done chan<- struct{}) {
+	defer func() {
+		fmt.Println("write routine safe exit...")
+	}()
+
+	defer func() { done <- struct{}{} }()
+
 	writer := bufio.NewWriterSize(conn, 1024)
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case msg := <-msg_chan:
 			send_bytes := pack_message(msg)
 			l := uint16(len(send_bytes))
@@ -239,7 +277,7 @@ func chatTo(cmdList []string) {
 	msg_chan <- req
 }
 
-func handleinput() {
+func handleinput(ctx context.Context, cancel context.CancelFunc) {
 	fmt.Println(".......................")
 	fmt.Println("Help:")
 	fmt.Println("Login Cmd: 		login username userpassord")
@@ -253,15 +291,27 @@ func handleinput() {
 	fmt.Println("")
 	inputReader := bufio.NewReader(os.Stdin)
 
+	defer func() {
+		fmt.Println("input routine safe exit...")
+	}()
+
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// continue to read input
+		}
+
 		input, err := inputReader.ReadString('\n')
 		if err != nil {
 			break
 		}
 
-		text := strings.TrimSuffix(input, "\n")
+		text := strings.TrimRight(input, "\r\n")
 		if text == "exit" {
-			os.Exit(0)
+			cancel()
+			return
 		}
 
 		textList := strings.Split(text, " ")

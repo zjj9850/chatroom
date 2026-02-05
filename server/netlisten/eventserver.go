@@ -4,10 +4,11 @@ import (
 	"chatroom/logkit"
 	"encoding/binary"
 	"fmt"
-	"github.com/panjf2000/gnet"
-	"github.com/panjf2000/gnet/pool/goroutine"
 	"sync/atomic"
 	"time"
+
+	"github.com/panjf2000/ants/v2"
+	"github.com/panjf2000/gnet"
 )
 
 const MAX_FRAME_ChANNEL = 1024
@@ -21,7 +22,7 @@ type NetListener struct {
 	*gnet.EventServer
 	Address      string
 	Codec        gnet.ICodec
-	WorkerPool   *goroutine.Pool
+	WorkerPool   *ants.Pool
 	ConnID       uint32
 	FrameChannel chan *NetFrame
 	OpenChannel  chan gnet.Conn
@@ -46,11 +47,12 @@ func NewNetListener(addr string, port int) *NetListener {
 	codec := gnet.NewLengthFieldBasedFrameCodec(encoderConfig, decoderConfig)
 
 	listener := &NetListener{
-		Address:    fmt.Sprintf("%s:%d", addr, port),
-		Codec:      codec,
-		WorkerPool: goroutine.Default(),
-		ConnID:     0,
+		Address: fmt.Sprintf("%s:%d", addr, port),
+		Codec:   codec,
+		ConnID:  0,
 	}
+
+	listener.WorkerPool, _ = ants.NewPool(2048)
 
 	listener.FrameChannel = make(chan *NetFrame, MAX_FRAME_ChANNEL)
 	listener.OpenChannel = make(chan gnet.Conn)
