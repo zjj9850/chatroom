@@ -6,12 +6,13 @@ import (
 	"chatroom/netlisten"
 	"chatroom/protocol"
 	"fmt"
-	"github.com/panjf2000/gnet"
-	"google.golang.org/protobuf/proto"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/panjf2000/gnet"
+	"google.golang.org/protobuf/proto"
 )
 
 type MsgHandlerFunc = func([]byte, uint32)
@@ -67,34 +68,31 @@ func (self *RoomMgr) removeUser(roomId uint32, userName string) {
 }
 
 func (self *RoomMgr) wordStat() {
-	for {
-		select {
-		case content := <-self.wordStatChan:
-			nowSec := time.Now().Unix()
-			statMap, e := self.WordStatistics[nowSec]
-			if !e {
-				statMap = make(map[string]int)
+	for content := range self.wordStatChan {
+		nowSec := time.Now().Unix()
+		statMap, e := self.WordStatistics[nowSec]
+		if !e {
+			statMap = make(map[string]int)
+		}
+		wordList := strings.SplitSeq(content, " ")
+		for word := range wordList {
+			if c, we := statMap[word]; we {
+				statMap[word] = c + 1
+			} else {
+				statMap[word] = 1
 			}
-			wordList := strings.Split(content, " ")
-			for _, word := range wordList {
-				if c, we := statMap[word]; we {
-					statMap[word] = c + 1
-				} else {
-					statMap[word] = 1
-				}
-			}
-			self.WordStatistics[nowSec] = statMap
+		}
+		self.WordStatistics[nowSec] = statMap
 
-			deleteSec := make([]int64, 0)
-			for sec, _ := range self.WordStatistics {
-				if nowSec-sec > 60 {
-					deleteSec = append(deleteSec, sec)
-				}
+		deleteSec := make([]int64, 0)
+		for sec := range self.WordStatistics {
+			if nowSec-sec > 60 {
+				deleteSec = append(deleteSec, sec)
 			}
+		}
 
-			for _, sec := range deleteSec {
-				delete(self.WordStatistics, sec)
-			}
+		for _, sec := range deleteSec {
+			delete(self.WordStatistics, sec)
 		}
 	}
 }
@@ -111,11 +109,7 @@ func (self *RoomMgr) getTopWord(sec int) (string, int) {
 		statMap, e := self.WordStatistics[s]
 		if e {
 			for str, count := range statMap {
-				if _, we := wordMap[str]; we {
-					wordMap[str] += count
-				} else {
-					wordMap[str] = count
-				}
+				wordMap[str] += count
 			}
 		}
 	}
@@ -133,11 +127,8 @@ func (self *RoomMgr) getTopWord(sec int) (string, int) {
 }
 
 func (self *RoomMgr) userLeaveCheck() {
-	for {
-		select {
-		case user := <-self.UserLeaveChan:
-			self.removeUser(user.RoomId, user.Name)
-		}
+	for user := range self.UserLeaveChan {
+		self.removeUser(user.RoomId, user.Name)
 	}
 }
 
@@ -281,11 +272,11 @@ func (self *RoomMgr) checkGmCommand(user *User, content string) bool {
 		ret := &protocol.GMCommandRes{}
 		cmdList := strings.Split(content, " ")
 		if len(cmdList) < 2 {
-			ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
+			ret.Result = "Popular GM Command Parament Invalid"
 		} else {
 			sec, err := strconv.Atoi(cmdList[1])
 			if err != nil {
-				ret.Result = fmt.Sprintf("Popular GM Command Parament Invalid")
+				ret.Result = "Popular GM Command Parament Invalid"
 			} else {
 				maxStr, maxCount := self.getTopWord(sec)
 				if maxStr == "" || maxCount == 0 {
@@ -305,7 +296,7 @@ func (self *RoomMgr) checkGmCommand(user *User, content string) bool {
 		ret := &protocol.GMCommandRes{}
 		cmdList := strings.Split(content, " ")
 		if len(cmdList) < 2 {
-			ret.Result = fmt.Sprintf("Stats GM Command Parament Invalid")
+			ret.Result = "Stats GM Command Parament Invalid"
 		} else {
 			targetName := cmdList[1]
 			target := self.chatHall.getUserByName(targetName)

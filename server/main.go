@@ -54,9 +54,6 @@ func main() {
 	roomMgr.Run()
 
 	err <- server.Run()
-
-	select {
-	case e := <-err:
-		logkit.Debug("Chat Server is shutdown", e.Error())
-	}
+	e := <-err
+	logkit.Debug("Chat Server is shutdown", e.Error())
 }

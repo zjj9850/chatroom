@@ -19,6 +19,25 @@ var LOG_COLOR map[string]string = map[string]string{
 	"CRITICAL": "\x1b[95;1m%s 0 :CRITICAL %s:%d \x1b[1m\x1b[91;1m%s\x1b[1m", // bold-red
 }
 
+type LogLevel int
+
+const (
+	logLevel_Info LogLevel = iota
+	logLevel_Warning
+	logLevel_Error
+	logLevel_Debug
+	logLevel_Critical
+	logLevel_Fatal
+	logLevel_Panic
+)
+
+type logdata struct {
+	data  string
+	level LogLevel
+}
+
+var logChan chan logdata
+
 func get_args_format(n int) string {
 	s := strings.Repeat("%v ", n-1)
 	s += "%v"
@@ -46,106 +65,118 @@ func get_date() string {
 	return tm.Format("2006-01-02 15:04:05.000")
 }
 
-func Info(v ...interface{}) {
+func Info(v ...any) {
 	logFmt, _ := LOG_COLOR["INFO"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Info, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Infof(format string, v ...interface{}) {
+func Infof(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["INFO"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Info, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Debug(v ...interface{}) {
+func Debug(v ...any) {
 	logFmt, _ := LOG_COLOR["DEBUG"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Debug, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["DEBUG"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Debug, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Warning(v ...interface{}) {
+func Warning(v ...any) {
 	logFmt, _ := LOG_COLOR["WARNING"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Warning, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Warningf(format string, v ...interface{}) {
+func Warningf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["WARNING"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Warning, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Error(v ...interface{}) {
+func Error(v ...any) {
 	logFmt, _ := LOG_COLOR["ERROR"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Error, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Errorf(format string, v ...interface{}) {
+func Errorf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["ERROR"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Error, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Critical(v ...interface{}) {
+func Critical(v ...any) {
 	logFmt, _ := LOG_COLOR["CRITICAL"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Critical, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Criticalf(format string, v ...interface{}) {
+func Criticalf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["CRITICAL"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
+	logChan <- logdata{level: logLevel_Critical, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Fatalf(format string, v ...interface{}) {
+func Fatalf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["CRITICAL"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(format, v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
-	os.Exit(1)
+	logChan <- logdata{level: logLevel_Fatal, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Fatal(v ...interface{}) {
+func Fatal(v ...any) {
 	logFmt, _ := LOG_COLOR["CRITICAL"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	fmt.Println(fmt.Sprintf(logFmt, get_date(), file, line, msg))
-	os.Exit(1)
+	logChan <- logdata{level: logLevel_Fatal, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
 }
 
-func Panicf(format string, v ...interface{}) {
+func Panicf(format string, v ...any) {
 	logFmt, _ := LOG_COLOR["ERROR"]
 	file, line := get_caller(2)
-	msg := fmt.Sprintf(format, v...)
-	s := fmt.Sprintf(logFmt, get_date(), file, line, msg)
-	fmt.Println(s)
-	panic(s)
+	msg := fmt.Sprintf(logFmt, get_date(), file, line, fmt.Sprintf(format, v...))
+	logChan <- logdata{level: logLevel_Panic, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
+
 }
 
-func Panic(v ...interface{}) {
+func Panic(v ...any) {
 	logFmt, _ := LOG_COLOR["ERROR"]
 	file, line := get_caller(2)
 	msg := fmt.Sprintf(get_args_format(len(v)), v...)
-	s := fmt.Sprintf(logFmt, get_date(), file, line, msg)
-	fmt.Println(s)
-	panic(s)
+	logChan <- logdata{level: logLevel_Panic, data: fmt.Sprintf(logFmt, get_date(), file, line, msg)}
+}
+
+func init() {
+	logChan = make(chan logdata, 1024)
+	go func() {
+		for msgData := range logChan {
+			fmt.Println(msgData.data)
+			switch msgData.level {
+			case logLevel_Fatal:
+				time.Sleep(10 * time.Millisecond)
+				os.Exit(1)
+			case logLevel_Panic:
+				time.Sleep(10 * time.Millisecond)
+				panic(msgData.data)
+			}
+		}
+	}()
 }
